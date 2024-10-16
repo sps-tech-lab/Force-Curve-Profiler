@@ -37,12 +37,19 @@ GyverOLED<SSD1306_128x64, OLED_BUFFER> oled;
 #define SYNC_PIN A2
 #define SYST_PIN 12
 
+//Led
 const int ledPin = 13;    // the number of the LED pin
 
-//3D cube
+//3D cube screensaver
 double vectors[8][3] = {{20, 20, 20}, { -20, 20, 20}, { -20, -20, 20}, {20, -20, 20}, {20, 20, -20}, { -20, 20, -20}, { -20, -20, -20}, {20, -20, -20}};
 double perspective = 100.0f;
 int deltaX, deltaY, deltaZ, iter = 0;
+
+//Config
+//#define START_POSITION (-2100)    //With kycaps
+#define START_POSITION (-3240)    //Without kycaps
+#define SCAN_DEPTH      (500)     //Scan Depth (change also in PC App)
+
 
 void setup() {
     Serial.begin(115200);
@@ -65,7 +72,7 @@ void setup() {
     // default "128" (Channel A) is used here.
     scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
     scale.set_scale(2280.f);                      // this value is obtained by calibrating the scale with known weights; see the README for details
-    scale.tare();				        // reset the scale to 0
+    scale.tare();               // reset the scale to 0
   
     //Stepper
     stepper.begin(RPM, MICROSTEPS);
@@ -88,6 +95,7 @@ void setup() {
     park_home();
 }
 
+
 void loop() {
 
     //Wait for start
@@ -95,13 +103,15 @@ void loop() {
       screensaver();
     }
 
+    //Prepare allowed
     oled.setScale(2);
     oled.setCursorXY(10, 20);
     oled.print("GET READY");
     oled.update();
 
+    //Goto start position
     stepper.enable();
-    stepper.rotate(-2100);
+    stepper.rotate(START_POSITION);
     stepper.disable();
 
     //Wait for start
@@ -109,6 +119,7 @@ void loop() {
       screensaver();
     }
 
+    //Scan allowed
     //Tare double check
     if(scale.get_units(10) < 0){
       oled.clear();
@@ -122,7 +133,7 @@ void loop() {
     stepper.enable();
 
     //Press
-    for(uint16_t steps = 0; steps<500; steps++){
+    for(uint16_t steps = 0; steps<SCAN_DEPTH; steps++){
 
       stepper.rotate(-1);
 
@@ -156,7 +167,7 @@ void loop() {
     }
 
     //Release
-    for(uint16_t steps = 500; steps>0; steps--){
+    for(uint16_t steps = SCAN_DEPTH; steps>0; steps--){
 
       stepper.rotate(1);
 
@@ -189,17 +200,18 @@ void loop() {
       }
     }
 
-    park_home();//stepper.rotate(500);
+    park_home();
     stepper.disable();
+    oled.setScale(2);
+    oled.setCursorXY(40, 20);
+    oled.print("TARE");
+    oled.update();
+    scale.tare();
     oled.clear();
     oled.update(); 
     
-    
-    while(1){
+    while(digitalRead(BUTN_PIN) != LOW){
       screensaver();
-      if( digitalRead(BUTN_PIN) == LOW ){
-        reboot();
-      }
     };
 }
 
