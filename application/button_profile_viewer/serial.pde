@@ -116,6 +116,22 @@ void serialEvent(Serial port){
 void parseData(String data) {
   // Remove any extra newline or carriage return characters
   data = trim(data);
+  
+    //Check when we should start new data collection 
+  if(data.equals("START")){
+    println("Started");
+    csv.load_reference();
+    csv.clear();
+    return;
+  }
+ 
+  //Check when we should store collected data 
+  if(data.equals("FINISH")){
+    csv.save_scan_csv();
+    csv.update_reference();
+    println("Finished");
+    return;
+  }
 
   // Split the string by tabs ('\t')
   String[] parts = split(data, '\t');
@@ -133,10 +149,14 @@ void parseData(String data) {
     
     // Store parsed values...
     if(status.equals("PRESS")){
+      csv.add_rise(value, index);
       press.data[index]=value;
+      press.pos = index;
     }
     if(status.equals("RELEASE")){
+      csv.add_drop(value, index);
       relis.data[index]=value;
+      relis.pos = index;
     }
 
 

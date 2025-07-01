@@ -4,6 +4,7 @@ class Chrat {
   Boolean autofit = true;    // Autoscale chart
   color   line_color;        // Line color
   int     stroke;            // Line weight
+  int     pos;               // Current position in chart
   
   float[] data = new float[502]; //Data
   
@@ -35,8 +36,8 @@ class Chrat {
     strokeWeight(this.stroke);
     
     // Find min and max values in the data array
-    float minValue = min(data);
-    float maxValue = max(data);
+    float minValue = 0;   //min(data);
+    float maxValue = 200; //max(data);
 
     // Calculate the width of each data point in the chart
     float stepX = this.width / (float) data.length;
@@ -60,6 +61,10 @@ class Chrat {
         line(x + i * stepX, mappedY1, x + (i + 1) * stepX, mappedY2);
       }
     }
+    fill(line_color);
+    noStroke();
+    float mappedY = map(data[pos], minValue, maxValue, y + this.height, y);  // First point
+    triangle(x+pos*stepX-5, mappedY+10, x+pos*stepX, mappedY, x+pos*stepX+5, mappedY+10);
   }
   
   void upload_data(String file, String way){

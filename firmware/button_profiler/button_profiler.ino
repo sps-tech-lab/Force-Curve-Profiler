@@ -46,10 +46,12 @@ double perspective = 100.0f;
 int deltaX, deltaY, deltaZ, iter = 0;
 
 //Config
-//#define START_POSITION (-2100)    //With kycaps
-#define START_POSITION (-3240)    //Without kycaps
 #define SCAN_DEPTH      (500)     //Scan Depth (change also in PC App)
 
+//Progress
+uint16_t      progress = 0;
+uint16_t      percent = 0;
+bool          break_scan = false;
 
 void setup() {
     Serial.begin(115200);
@@ -82,15 +84,24 @@ void setup() {
     oled.init();
     Wire.setClock(800000L);
 
+    while(digitalRead(BUTN_PIN) == LOW){
+        oled.clear();
+        oled.setScale(2);
+        oled.setCursorXY(42, 25);
+        oled.print("v1.2");
+        oled.update();
+    }
+
     oled.setScale(2);
     oled.setCursorXY(15, 20);
     oled.print("SPS TECH");
     oled.setScale(1);
     oled.setCursorXY(50, 40);
     oled.print("2024");
+    oled.setScale(1);
     oled.update();
     
-    delay(3000);
+    delay(2000);
 
     park_home();
 }
@@ -98,26 +109,32 @@ void setup() {
 
 void loop() {
 
+    Serial.println("START");
+    break_scan = false;
+
     //Wait for start
     while(digitalRead(BUTN_PIN) == HIGH){
       screensaver();
     }
+
+    oled.clear();
+    oled.setScale(2);
+    oled.setCursorXY(40, 20);
+    oled.print("TARE");
+    oled.update();
+    scale.tare();
+
+    //Find start position
+    stepper.enable();
+    start_probe();
+    stepper.disable();
 
     //Prepare allowed
     oled.setScale(2);
     oled.setCursorXY(10, 20);
     oled.print("GET READY");
     oled.update();
-
-    //Goto start position
-    stepper.enable();
-    stepper.rotate(START_POSITION);
-    stepper.disable();
-
-    //Wait for start
-    while(digitalRead(BUTN_PIN) == HIGH){
-      screensaver();
-    }
+    delay(100);
 
     //Scan allowed
     //Tare double check
@@ -128,7 +145,10 @@ void loop() {
       oled.print("TARE");
       oled.update();
       scale.tare();
+      delay(100);
     }
+
+    progress = 0;
     
     stepper.enable();
 
@@ -140,6 +160,8 @@ void loop() {
       float force = scale.get_units(1);
       if(force < 0) force = 0;
 
+      percent = map(progress++, 0, 1000, 0, 99);
+
       Serial.print(steps);
       Serial.print("\t");
       Serial.print(force);
@@ -148,7 +170,13 @@ void loop() {
       oled.clear();
       oled.setScale(1);
       oled.setCursorXY(0, 0);
-      oled.print(steps);
+      oled.print(percent);
+      if(percent <10){
+        oled.setCursorXY(8, 0);
+      }else{
+        oled.setCursorXY(15, 0);
+      }
+      oled.print("%");
 
       oled.setScale(3);
       if(force < 10 ){
@@ -162,42 +190,58 @@ void loop() {
       oled.update();
 
       if( digitalRead(BUTN_PIN) == LOW ){
-        reboot();
+        break_scan = true;
+        break;
       }
     }
 
     //Release
-    for(uint16_t steps = SCAN_DEPTH; steps>0; steps--){
+    if( break_scan == false ){
+      for(uint16_t steps = SCAN_DEPTH; steps>0; steps--){
 
-      stepper.rotate(1);
+        stepper.rotate(1);
 
-      float force = scale.get_units(1);
-      if(force < 0) force = 0;
+        float force = scale.get_units(1);
+        if(force < 0) force = 0;
 
-      Serial.print(steps);
-      Serial.print("\t");
-      Serial.print(force);
-      Serial.println("\tRELEASE");
+        percent = map(progress++, 0, 1000, 0, 99);
 
-      oled.clear();
-      oled.setScale(1);
-      oled.setCursorXY(0, 0);
-      oled.print(steps);
+        Serial.print(steps);
+        Serial.print("\t");
+        Serial.print(force);
+        Serial.println("\tRELEASE");
 
-      oled.setScale(3);
-      if(force < 10 ){
-        oled.setCursorXY(30, 20);
-      }else if(force > 100 ){
-        oled.setCursorXY(10, 20);
-      }else{
-        oled.setCursorXY(20, 20);
+        oled.clear();
+        oled.setScale(1);
+        oled.setCursorXY(0, 0);
+        oled.print(percent);
+        if(percent <10){
+          oled.setCursorXY(8, 0);
+        }else{
+          oled.setCursorXY(15, 0);
+        }
+        oled.print("%");
+
+        oled.setScale(3);
+        if( force < 10 ){
+          oled.setCursorXY(30, 20);
+        }else if( force > 100 ){
+          oled.setCursorXY(10, 20);
+        }else{
+          oled.setCursorXY(20, 20);
+        }
+        oled.print(force);
+        oled.update();
+
+        if( digitalRead(BUTN_PIN) == LOW ){
+          break_scan = true;
+          break;
+        }
       }
-      oled.print(force);
-      oled.update();
+    }
 
-      if( digitalRead(BUTN_PIN) == LOW ){
-        reboot();
-      }
+    if( break_scan == false ){
+      Serial.println("FINISH");
     }
 
     park_home();
@@ -234,8 +278,39 @@ void park_home(){
     oled.update(); 
 }
 
-//Screensaver functions
+void start_probe(){
 
+    float force;
+
+    oled.clear();
+    oled.setScale(2);
+    oled.setCursorXY(40, 20);
+    oled.print("PROBE");
+    oled.update();
+
+    stepper.enable();
+    force = scale.get_units(1);
+    while(force < 10) {
+        stepper.rotate(-100);
+        force = scale.get_units(1);
+        if(force < 0) force = 0;
+    }
+    stepper.rotate(150);
+    while(force < 1) {
+        stepper.rotate(-1);
+        force = scale.get_units(1);
+        if(force < 0) force = 0;
+    }
+    stepper.rotate(50);
+    stepper.disable();
+
+    oled.clear();
+    oled.update(); 
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Screensaver functions
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void screensaver(){
   oled.clear();
   oled.home();
