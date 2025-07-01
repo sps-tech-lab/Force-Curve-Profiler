@@ -5,54 +5,73 @@
 #include <GyverOLED.h>
 #include <avr/wdt.h>
 
-//Config print
-#define MAX_STRING_LENGTH 24   // Define a maximum buffer size for the string
+// -----------------------------------------------------------------------------
+// Configuration Constants
+// -----------------------------------------------------------------------------
 
-// Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
+//Config
+#define SCAN_DEPTH  (500)           //Scan Depth (Hardcoded in PC App!)
+
+// Stepper motor configuration
 #define MOTOR_STEPS 200
-#define RPM 120
+#define RPM         120
+#define DIR         8
+#define STEP        9
+#define SLEEP       10
+#define MICROSTEPS  16
 
-// Since microstepping is set externally, make sure this matches the selected mode
-// If it doesn't, the motor will move at a different RPM than chosen
-// 1=full step, 2=half step etc.
-#define MICROSTEPS 16
-
-// All the wires needed for full functionality
-#define DIR 8
-#define STEP 9
-#define SLEEP 10
-BasicStepperDriver stepper(MOTOR_STEPS, DIR, STEP, SLEEP);
-
-// HX711 circuit wiring
-HX711 scale;
+// HX711 load cell pins
 const int LOADCELL_DOUT_PIN = 3;
-const int LOADCELL_SCK_PIN = 4;
+const int LOADCELL_SCK_PIN  = 4;
 
-//Display
-GyverOLED<SSD1306_128x64, OLED_BUFFER> oled;
+/// OLED display template
+using Display = GyverOLED<SSD1306_128x64, OLED_BUFFER>;
 
-//Input
+// Button and sync input pins
 #define HOME_PIN A0
 #define BUTN_PIN A1
 #define SYNC_PIN A2
 #define SYST_PIN 12
 
-//Led
-const int ledPin = 13;    // the number of the LED pin
+// Onboard LED pin for feedback
+#define PIN_STATUS_LED LED_BUILTIN
 
-//3D cube screensaver
-double vectors[8][3] = {{20, 20, 20}, { -20, 20, 20}, { -20, -20, 20}, {20, -20, 20}, {20, 20, -20}, { -20, 20, -20}, { -20, -20, -20}, {20, -20, -20}};
-double perspective = 100.0f;
-int deltaX, deltaY, deltaZ, iter = 0;
 
-//Config
-#define SCAN_DEPTH      (500)     //Scan Depth (change also in PC App)
+// -----------------------------------------------------------------------------
+// State and progress variables
+// -----------------------------------------------------------------------------
 
 //Progress
 uint16_t      progress = 0;
 uint16_t      percent = 0;
 bool          break_scan = false;
 
+// -----------------------------------------------------------------------------
+// Global Objects
+// -----------------------------------------------------------------------------
+
+BasicStepperDriver stepper(MOTOR_STEPS, DIR, STEP, SLEEP);
+Display oled;
+HX711 scale;
+
+// -----------------------------------------------------------------------------
+// 3D cube screensaver
+// -----------------------------------------------------------------------------
+
+double vectors[8][3] = {{ 20,  20, 20}, 
+                        { -20, 20, 20},
+                        { -20,-20, 20},
+                        { 20, -20, 20},
+                        { 20,  20, -20},
+                        {-20,  20, -20},
+                        {-20, -20, -20},
+                        { 20, -20, -20}};
+double perspective = 100.0f;
+int    deltaX, deltaY, deltaZ, iter = 0;
+
+// -----------------------------------------------------------------------------
+// Setup
+// -----------------------------------------------------------------------------
 void setup() {
     Serial.begin(115200);
     Serial.println("Force-Curve Profiler :: SPS TECH :: 2024");
@@ -64,17 +83,12 @@ void setup() {
     pinMode(SYST_PIN, INPUT_PULLUP);
 
     // initialize the LED pin as an output:
-    pinMode(ledPin, OUTPUT);
+    pinMode(PIN_STATUS_LED, OUTPUT);
 
-    // Initialize library with data output pin, clock input pin and gain factor.
-    // Channel selection is made by passing the appropriate gain:
-    // - With a gain factor of 64 or 128, channel A is selected
-    // - With a gain factor of 32, channel B is selected
-    // By omitting the gain factor parameter, the library
-    // default "128" (Channel A) is used here.
+    //Init HX711
     scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-    scale.set_scale(2280.f);                      // this value is obtained by calibrating the scale with known weights; see the README for details
-    scale.tare();               // reset the scale to 0
+    scale.set_scale(2280.f);       // this value is obtained by calibrating the scale with known weights; see the README for details
+    scale.tare();                  // reset the scale to 0
   
     //Stepper
     stepper.begin(RPM, MICROSTEPS);
@@ -106,7 +120,9 @@ void setup() {
     park_home();
 }
 
-
+// -----------------------------------------------------------------------------
+// Main Loop
+// -----------------------------------------------------------------------------
 void loop() {
 
     Serial.println("START");
@@ -149,7 +165,6 @@ void loop() {
     }
 
     progress = 0;
-    
     stepper.enable();
 
     //Press
@@ -259,7 +274,12 @@ void loop() {
     };
 }
 
-
+// -----------------------------------------------------------------------------
+// Motor Actions
+// -----------------------------------------------------------------------------
+/**
+ * @brief Performs homing routine for the stepper motor.
+ */
 void park_home(){
     oled.clear();
     oled.setScale(2);
@@ -270,14 +290,17 @@ void park_home(){
     stepper.enable();
     while(digitalRead(HOME_PIN) == HIGH){
         stepper.rotate(1);
-        digitalWrite(ledPin, HIGH);
-        digitalWrite(ledPin, LOW);
+        digitalWrite(PIN_STATUS_LED, HIGH);
+        digitalWrite(PIN_STATUS_LED, LOW);
     }
     stepper.disable();
     oled.clear();
     oled.update(); 
 }
 
+/**
+ * @brief Probe nearest surface to find "Zero Point"
+ */
 void start_probe(){
 
     float force;
@@ -308,9 +331,12 @@ void start_probe(){
     oled.update(); 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// -----------------------------------------------------------------------------
 //Screensaver functions
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// -----------------------------------------------------------------------------
+/**
+ * @brief Run screensaver
+ */
 void screensaver(){
   oled.clear();
   oled.home();
@@ -328,14 +354,19 @@ void screensaver(){
   oled.update();
 }
 
+/**
+ * @brief Translations
+ */
 int translateX(double x, double z) {
   return (int)((x + 64) + (z * (x / perspective)));
 }
-
 int translateY(double y, double z) {
   return (int)((y + 32) + (z * (y / perspective)));
 }
 
+/**
+ * @brief Rotations
+ */
 void rotateX(int angle) {
   double rad, cosa, sina, Yn, Zn;
   rad = angle * PI / 180;
@@ -348,7 +379,6 @@ void rotateX(int angle) {
     vectors[i][2] = Zn;
   }
 }
-
 void rotateY(int angle) {
   double rad, cosa, sina, Xn, Zn;
   rad = angle * PI / 180;
@@ -362,7 +392,6 @@ void rotateY(int angle) {
     vectors[i][2] = Zn;
   }
 }
-
 void rotateZ(int angle) {
   double rad, cosa, sina, Xn, Yn;
   rad = angle * PI / 180;
@@ -376,6 +405,9 @@ void rotateZ(int angle) {
   }
 }
 
+/**
+ * @brief Vectors
+ */
 void drawVectors() {
   oled.line(translateX(vectors[0][0], vectors[0][2]), translateY(vectors[0][1], vectors[0][2]), translateX(vectors[1][0], vectors[1][2]), translateY(vectors[1][1], vectors[1][2]));
   oled.line(translateX(vectors[1][0], vectors[1][2]), translateY(vectors[1][1], vectors[1][2]), translateX(vectors[2][0], vectors[2][2]), translateY(vectors[2][1], vectors[2][2]));
@@ -391,9 +423,9 @@ void drawVectors() {
   oled.line(translateX(vectors[3][0], vectors[3][2]), translateY(vectors[3][1], vectors[3][2]), translateX(vectors[7][0], vectors[7][2]), translateY(vectors[7][1], vectors[7][2]));
 }
 
-//SW Reboot
-void reboot() {
-  wdt_disable();
-  wdt_enable(WDTO_15MS);
-  while (1) {}
-}
+// //SW Reboot
+// void reboot() {
+//   wdt_disable();
+//   wdt_enable(WDTO_15MS);
+//   while (1) {}
+// }

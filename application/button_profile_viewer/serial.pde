@@ -145,8 +145,7 @@ void parseData(String data) {
     
     // Print the parsed values to the console for debugging
     println("Index: " + index + " | Value: " + value + " | Status: " + status);
-    appendTextToFile(outFilename, index + "\u0009" + value + "\u0009" + status);
-    
+
     // Store parsed values...
     if(status.equals("PRESS")){
       csv.add_rise(value, index);
@@ -158,8 +157,6 @@ void parseData(String data) {
       relis.data[index]=value;
       relis.pos = index;
     }
-
-
   } else {
     println("Error: Incorrect data format:");
     println("[ "+data+" ]");

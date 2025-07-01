@@ -1,3 +1,11 @@
+//Colors
+color       bgcolor     = color( 26, 31, 40 );
+color       trcolor     = color( 230, 219, 116, 75 );
+color       cncolor     = color( 117, 113, 94 );
+color       txcolor     = #747983;
+color       orng_out    = #f89300;
+color       blue_out    = #0083cd;
+
 /**
   **************************************************************************************************
   * @brief      My watermark
@@ -20,7 +28,7 @@ void control_watermark(){
   * @brief      Draw a group of serial control buttons
   **************************************************************************************************
 **/
-void control_group(String name, int x, int y) 
+void control_group(int x, int y) 
 {
   fill(bgcolor);
   stroke(txcolor);
@@ -30,10 +38,10 @@ void control_group(String name, int x, int y)
   
 
   if(Button("", x+30, y-25, 20, 20, 7)){
-    btn_click(name,"+");
+    btn_click("+");
   }
   if(Button("", x+5, y-25, 20, 20, 7)){
-    btn_click(name,"-");
+    btn_click("-");
   }
   
 
@@ -60,7 +68,7 @@ void control_group(String name, int x, int y)
   * @brief      Button click handler
   **************************************************************************************************
 **/
-void btn_click(String name, String dir){
+void btn_click(String dir){
   if( dir == "+" ){
     serial.inc();
   }else{
