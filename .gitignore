@@ -2,3 +2,7 @@
 application/button_profile_viewer/scans/
 
 application/button_profile_viewer/data/scans/
+
+application/button_profile_viewer/linux-amd64/
+
+application/button_profile_viewer/windows-amd64/
