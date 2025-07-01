@@ -30,8 +30,6 @@ using Display = GyverOLED<SSD1306_128x64, OLED_BUFFER>;
 // Button and sync input pins
 #define HOME_PIN A0
 #define BUTN_PIN A1
-#define SYNC_PIN A2
-#define SYST_PIN 12
 
 // Onboard LED pin for feedback
 #define PIN_STATUS_LED LED_BUILTIN
@@ -79,8 +77,6 @@ void setup() {
     //Input
     pinMode(HOME_PIN, INPUT_PULLUP);
     pinMode(BUTN_PIN, INPUT_PULLUP);
-    pinMode(SYNC_PIN, INPUT_PULLUP);
-    pinMode(SYST_PIN, INPUT_PULLUP);
 
     // initialize the LED pin as an output:
     pinMode(PIN_STATUS_LED, OUTPUT);
